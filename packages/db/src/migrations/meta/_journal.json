@@ -946,6 +946,13 @@
       "when": 1783555200000,
       "tag": "0136_acpx_default_engine_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1783555300000,
+      "tag": "0137_plugin_config_company_scope",
+      "breakpoints": true
     }
   ]
 }
