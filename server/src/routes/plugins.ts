@@ -1327,7 +1327,7 @@ export function pluginRoutes(
         "getData",
         {
           key: body.key,
-          ...(companyId ? { companyId } : {}),
+          companyId: companyId ?? null,
           params: body.params ?? {},
           renderEnvironment: body.renderEnvironment ?? null,
         },
@@ -1420,6 +1420,7 @@ export function pluginRoutes(
         "performAction",
         {
           key: body.key,
+          companyId: companyId ?? null,
           params: body.params ?? {},
           actorContext: performActionActorContext(req, companyId),
           renderEnvironment: body.renderEnvironment ?? null,
@@ -1514,7 +1515,7 @@ export function pluginRoutes(
         "getData",
         {
           key,
-          ...(companyId ? { companyId } : {}),
+          companyId: companyId ?? null,
           params: body?.params ?? {},
           renderEnvironment: body?.renderEnvironment ?? null,
         },
@@ -1604,6 +1605,7 @@ export function pluginRoutes(
         "performAction",
         {
           key,
+          companyId: companyId ?? null,
           params: body?.params ?? {},
           actorContext: performActionActorContext(req, companyId),
           renderEnvironment: body?.renderEnvironment ?? null,
