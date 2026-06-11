@@ -7780,6 +7780,12 @@ export function issueRoutes(
       presentation: req.body.presentation,
       metadata: req.body.metadata,
     })) return;
+    // Enforce checkout-run ownership for in_progress issues even when the actor is
+    // the assignee agent: a successor run cannot comment while the original owner
+    // run is still live (same-agent live-run safety invariant).
+    if (issue.status === "in_progress" && req.actor.type === "agent" && issue.assigneeAgentId === req.actor.agentId) {
+      if (!(await assertAgentIssueMutationAllowed(req, res, issue))) return;
+    }
     const closedExecutionWorkspace = await getClosedIssueExecutionWorkspace(issue);
     if (closedExecutionWorkspace) {
       respondClosedIssueExecutionWorkspace(res, closedExecutionWorkspace);
