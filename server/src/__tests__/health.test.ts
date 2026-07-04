@@ -24,10 +24,24 @@ const testServerInfo = {
     },
   },
 } as const;
+const mockGetLiveEventsTransportHealth = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ mode: "in-process" }),
+);
+const mockGetSchedulerHealth = vi.hoisted(() => vi.fn().mockResolvedValue({ candidate: false, isLeader: false }));
 
 vi.mock("../dev-server-status.js", () => ({
   readPersistedDevServerStatus: mockReadPersistedDevServerStatus,
   toDevServerHealthStatus: vi.fn(),
+}));
+
+vi.mock("../services/live-events.js", () => ({
+  getLiveEventsTransportHealth: mockGetLiveEventsTransportHealth,
+}));
+
+vi.mock("../services/scheduler-leadership.js", () => ({
+  getSchedulerHealth: mockGetSchedulerHealth,
+  registerSchedulerLeadershipForHealth: vi.fn(),
+  getRegisteredSchedulerLeadership: vi.fn().mockReturnValue(null),
 }));
 
 function createApp(db?: Db, serverInfo = testServerInfo) {
@@ -49,6 +63,7 @@ describe("GET /health", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockReadPersistedDevServerStatus.mockReturnValue(undefined);
+    mockGetSchedulerHealth.mockResolvedValue({ candidate: false, isLeader: false });
   });
 
   afterEach(() => {
@@ -75,6 +90,7 @@ describe("GET /health", () => {
       status: "ok",
       version: serverVersion,
       serverInfo: testServerInfo,
+      liveEvents: { mode: "in-process" },
     });
   });
 
@@ -153,6 +169,7 @@ describe("GET /health", () => {
       deploymentExposure: "public",
       bootstrapStatus: "ready",
       bootstrapInviteActive: false,
+      scheduler: { candidate: false, isLeader: false },
     });
     expect(res.body.serverInfo).toBeUndefined();
   });
@@ -190,8 +207,55 @@ describe("GET /health", () => {
       deploymentExposure: "public",
       bootstrapStatus: "ready",
       bootstrapInviteActive: false,
+      scheduler: { candidate: false, isLeader: false },
     });
     expect(res.body.serverInfo).toBeUndefined();
+  });
+
+  it("redacted response does not include leader block even when mock returns one", async () => {
+    mockGetSchedulerHealth.mockResolvedValue({
+      candidate: true,
+      isLeader: true,
+      leader: {
+        leaderId: "leader-uuid",
+        hostname: "pod-0",
+        electedAt: "2026-01-01T00:00:00.000Z",
+        expiresAt: "2026-01-01T00:00:15.000Z",
+      },
+    });
+    const devServerStatus = await import("../dev-server-status.js");
+    vi.spyOn(devServerStatus, "readPersistedDevServerStatus").mockReturnValue(undefined);
+    const { healthRoutes } = await import("../routes/health.js");
+    const db = {
+      execute: vi.fn().mockResolvedValue([{ "?column?": 1 }]),
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn().mockResolvedValue([{ count: 1 }]),
+        })),
+      })),
+    } as unknown as Db;
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as any).actor = { type: "none", source: "none" };
+      next();
+    });
+    app.use(
+      "/health",
+      healthRoutes(db, {
+        deploymentMode: "authenticated",
+        deploymentExposure: "public",
+        authReady: true,
+        companyDeletionEnabled: false,
+      }),
+    );
+
+    const res = await request(app).get("/health");
+
+    expect(res.status).toBe(200);
+    // booleans are present
+    expect(res.body.scheduler).toEqual({ candidate: true, isLeader: true });
+    // lease row must NOT be present in the redacted view
+    expect(res.body.scheduler).not.toHaveProperty("leader");
   });
 
   it("keeps detailed metadata for authenticated requests in authenticated mode", async () => {
@@ -237,6 +301,7 @@ describe("GET /health", () => {
         companyDeletionEnabled: false,
       },
       serverInfo: testServerInfo,
+      scheduler: { candidate: false, isLeader: false },
     });
   });
 });
