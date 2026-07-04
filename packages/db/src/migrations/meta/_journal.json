@@ -897,6 +897,34 @@
       "when": 1782526500000,
       "tag": "0127_environment_custom_images_instance_scoped",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1782600000000,
+      "tag": "0128_plugin_webhook_delivery_dedup",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1782600100000,
+      "tag": "0129_scheduler_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1782600200000,
+      "tag": "0130_plugin_artifact_generations",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1782600300000,
+      "tag": "0131_executor_claim_columns",
+      "breakpoints": true
     }
   ]
 }
