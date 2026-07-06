@@ -24,10 +24,17 @@ const testServerInfo = {
     },
   },
 } as const;
+const mockGetLiveEventsTransportHealth = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ mode: "in-process" }),
+);
 
 vi.mock("../dev-server-status.js", () => ({
   readPersistedDevServerStatus: mockReadPersistedDevServerStatus,
   toDevServerHealthStatus: vi.fn(),
+}));
+
+vi.mock("../services/live-events.js", () => ({
+  getLiveEventsTransportHealth: mockGetLiveEventsTransportHealth,
 }));
 
 function createApp(db?: Db, serverInfo = testServerInfo) {
@@ -75,6 +82,7 @@ describe("GET /health", () => {
       status: "ok",
       version: serverVersion,
       serverInfo: testServerInfo,
+      liveEvents: { mode: "in-process" },
     });
   });
 
