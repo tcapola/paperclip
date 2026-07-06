@@ -544,11 +544,14 @@ export type {
   ProjectWorkspace,
   CompanySearchHighlight,
   CompanySearchArtifactSummary,
+  CompanySearchFolderSummary,
   CompanySearchIssueSummary,
   CompanySearchResponse,
   CompanySearchResult,
   CompanySearchResultType,
+  CompanySearchRoutineSummary,
   CompanySearchScope,
+  CompanySearchSkillSummary,
   CompanySearchSnippet,
   ExecutionWorkspace,
   ExecutionWorkspaceSummary,
@@ -1633,12 +1636,36 @@ export type {
 } from "./environment-support.js";
 
 export type { AdapterRegistryEntry } from "./types/adapter-registry.js";
+export type {
+  FolderKind,
+  Folder,
+  FolderListItem,
+  FolderListResult,
+  CreateFolderRequest,
+  UpdateFolderRequest,
+  MoveFolderRequest,
+  MoveFolderItemRequest,
+} from "./types/folder.js";
 
 export {
   adapterRegistryEntrySchema,
   adapterRegistrySchema,
   type AdapterRegistryEntryParsed,
 } from "./validators/adapter-registry.js";
+export {
+  folderKindSchema,
+  folderSchema,
+  folderListItemSchema,
+  folderListResultSchema,
+  createFolderSchema,
+  updateFolderSchema,
+  moveFolderSchema,
+  moveFolderItemSchema,
+  type CreateFolder,
+  type UpdateFolder,
+  type MoveFolder,
+  type MoveFolderItem,
+} from "./validators/folder.js";
 
 export {
   environmentCustomImageTemplateKindSchema,

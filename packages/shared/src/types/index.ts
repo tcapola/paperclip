@@ -107,6 +107,16 @@ export type {
   CompanySkillInstallCatalogResult,
 } from "./company-skill.js";
 export type {
+  FolderKind,
+  Folder,
+  FolderListItem,
+  FolderListResult,
+  CreateFolderRequest,
+  UpdateFolderRequest,
+  MoveFolderRequest,
+  MoveFolderItemRequest,
+} from "./folder.js";
+export type {
   CatalogTeamKind,
   CatalogTeamTrustLevel,
   CatalogTeamCompatibility,
@@ -195,11 +205,14 @@ export type { Project, ProjectBudgetSummary, ProjectCodebase, ProjectCodebaseOri
 export type {
   CompanySearchHighlight,
   CompanySearchArtifactSummary,
+  CompanySearchFolderSummary,
   CompanySearchIssueSummary,
   CompanySearchResponse,
   CompanySearchResult,
   CompanySearchResultType,
+  CompanySearchRoutineSummary,
   CompanySearchScope,
+  CompanySearchSkillSummary,
   CompanySearchSnippet,
 } from "./search.js";
 export { COMPANY_SEARCH_SCOPES } from "./search.js";

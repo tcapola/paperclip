@@ -22,6 +22,7 @@ export interface CompanySkillVersionFileInventoryEntry extends CompanySkillFileI
 export interface CompanySkill {
   id: string;
   companyId: string;
+  folderId?: string | null;
   key: string;
   slug: string;
   name: string;
@@ -55,6 +56,7 @@ export interface CompanySkill {
 export interface CompanySkillListItem {
   id: string;
   companyId: string;
+  folderId?: string | null;
   key: string;
   slug: string;
   name: string;
