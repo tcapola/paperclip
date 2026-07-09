@@ -135,10 +135,21 @@ describeEmbeddedPostgres("heartbeat dependency-aware queued run selection", () =
     await db.delete(documents);
     await db.delete(issueRelations);
     await db.delete(issueTreeHolds);
-    await db.delete(issues);
     await db.delete(heartbeatRunEvents);
     await db.delete(activityLog);
     await db.delete(heartbeatRuns);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        await db.transaction(async (tx) => {
+          await tx.delete(issueComments);
+          await tx.delete(issues);
+        });
+        break;
+      } catch (error) {
+        if (attempt === 4) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
     await db.delete(agentWakeupRequests);
     await db.delete(agentRuntimeState);
     await db.delete(agents);
