@@ -1002,6 +1002,13 @@
       "when": 1783520000000,
       "tag": "0144_case_document_annotations",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1783641600000,
+      "tag": "0145_jsonb_issue_id_expression_indexes",
+      "breakpoints": true
     }
   ]
 }
