@@ -338,6 +338,88 @@ describe("approval routes idempotent retries", () => {
     );
   });
 
+  it.each(["telegram:user_123", "telegram:user-123"])(
+    "records allowed Telegram approval attribution %j from board API key integrations",
+    async (decidedByUserId) => {
+      mockApprovalService.getById.mockResolvedValue({
+        id: "approval-4ca",
+        companyId: "company-1",
+        type: "hire_agent",
+        status: "pending",
+        payload: {},
+        requestedByAgentId: null,
+      });
+      mockApprovalService.approve.mockResolvedValue({
+        approval: {
+          id: "approval-4ca",
+          companyId: "company-1",
+          type: "hire_agent",
+          status: "approved",
+          payload: {},
+          requestedByAgentId: null,
+        },
+        applied: true,
+      });
+
+      const res = await request(await createApp({ source: "board_key", keyId: "board-key-1" }))
+        .post("/api/approvals/approval-4ca/approve")
+        .send({ decidedByUserId, decisionNote: "ship it" });
+
+      expect(res.status).toBe(200);
+      expect(mockApprovalService.approve).toHaveBeenCalledWith(
+        "approval-4ca",
+        decidedByUserId,
+        "ship it",
+      );
+    },
+  );
+
+  it.each([
+    "telegram:",
+    "telegram:tigom007\nspoofed",
+    "telegram:tigom007\rspoofed",
+    "telegram:tigom007\tspoofed",
+    "telegram:tigom007\u0000spoofed",
+    "telegram:\u001b[31mspoofed",
+    "telegram:tigom007\u200b",
+    "telegram:tigom007 spoofed",
+    "telegram:tigom007/spoofed",
+    "telegram:../tigom007",
+    "telegram:tigom007.spoofed",
+    "telegram:@tigom007",
+  ])("ignores unsafe Telegram approval attribution %j from board API key integrations", async (decidedByUserId) => {
+    mockApprovalService.getById.mockResolvedValue({
+      id: "approval-4d",
+      companyId: "company-1",
+      type: "hire_agent",
+      status: "pending",
+      payload: {},
+      requestedByAgentId: null,
+    });
+    mockApprovalService.approve.mockResolvedValue({
+      approval: {
+        id: "approval-4d",
+        companyId: "company-1",
+        type: "hire_agent",
+        status: "approved",
+        payload: {},
+        requestedByAgentId: null,
+      },
+      applied: true,
+    });
+
+    const res = await request(await createApp({ source: "board_key", keyId: "board-key-1" }))
+      .post("/api/approvals/approval-4d/approve")
+      .send({ decidedByUserId, decisionNote: "ship it" });
+
+    expect(res.status).toBe(200);
+    expect(mockApprovalService.approve).toHaveBeenCalledWith(
+      "approval-4d",
+      "user-1",
+      "ship it",
+    );
+  });
+
   it("derives approval attribution from the authenticated actor on reject", async () => {
     mockApprovalService.getById.mockResolvedValue({
       id: "approval-5",
@@ -431,6 +513,50 @@ describe("approval routes idempotent retries", () => {
         action: "approval.rejected",
         actorId: "telegram:tigom007",
       }),
+    );
+  });
+
+  it.each([
+    "telegram:",
+    "telegram:tigom007\nspoofed",
+    "telegram:tigom007\rspoofed",
+    "telegram:tigom007\tspoofed",
+    "telegram:tigom007\u0000spoofed",
+    "telegram:\u001b[31mspoofed",
+    "telegram:tigom007\u200b",
+    "telegram:tigom007 spoofed",
+    "telegram:tigom007/spoofed",
+    "telegram:../tigom007",
+    "telegram:tigom007.spoofed",
+    "telegram:@tigom007",
+  ])("ignores unsafe Telegram rejection attribution %j from board API key integrations", async (decidedByUserId) => {
+    mockApprovalService.getById.mockResolvedValue({
+      id: "approval-5d",
+      companyId: "company-1",
+      type: "hire_agent",
+      status: "pending",
+      payload: {},
+    });
+    mockApprovalService.reject.mockResolvedValue({
+      approval: {
+        id: "approval-5d",
+        companyId: "company-1",
+        type: "hire_agent",
+        status: "rejected",
+        payload: {},
+      },
+      applied: true,
+    });
+
+    const res = await request(await createApp({ source: "board_key", keyId: "board-key-1" }))
+      .post("/api/approvals/approval-5d/reject")
+      .send({ decidedByUserId, decisionNote: "not now" });
+
+    expect(res.status).toBe(200);
+    expect(mockApprovalService.reject).toHaveBeenCalledWith(
+      "approval-5d",
+      "user-1",
+      "not now",
     );
   });
 

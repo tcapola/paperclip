@@ -39,15 +39,15 @@ function isStatusOnlyCheapRecoveryContext(contextSnapshot: unknown) {
     context.resumeRequiresNormalModel === true;
 }
 
+const TELEGRAM_DECISION_ACTOR_ID_RE = /^telegram:[A-Za-z0-9_-]+$/;
+
 function resolveApprovalDecisionActor(req: Request): string {
   const externalActor = typeof req.body?.decidedByUserId === "string"
     ? req.body.decidedByUserId.trim()
     : "";
   if (
     req.actor.source === "board_key" &&
-    externalActor.startsWith("telegram:") &&
-    externalActor.length > "telegram:".length &&
-    !/[\r\n]/.test(externalActor)
+    TELEGRAM_DECISION_ACTOR_ID_RE.test(externalActor)
   ) {
     return externalActor;
   }
