@@ -11,7 +11,7 @@ import {
   startEmbeddedPostgresTestDatabase,
 } from "./test-embedded-postgres.js";
 
-const ISSUE_ID_INDEX_MIGRATION = "0137_jsonb_issue_id_expression_indexes.sql";
+const ISSUE_ID_INDEX_MIGRATION = "0145_jsonb_issue_id_expression_indexes.sql";
 const HEARTBEAT_RUNS_INDEX = "heartbeat_runs_company_context_issue_idx";
 const WAKEUP_REQUESTS_INDEX = "agent_wakeup_requests_company_payload_issue_idx";
 
