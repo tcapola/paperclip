@@ -35,6 +35,11 @@ export {
   issueService,
   type IssueFilters,
 } from "./issues.js";
+export {
+  blockedInboxRollupService,
+  buildBlockedInboxRollup,
+  renderBlockedInboxRollupMarkdown,
+} from "./blocked-inbox-rollup.js";
 export { issueThreadInteractionService } from "./issue-thread-interactions.js";
 export { issueTreeControlService } from "./issue-tree-control.js";
 export { issueApprovalService } from "./issue-approvals.js";
