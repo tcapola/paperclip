@@ -1010,6 +1010,8 @@ export type {
   PluginObjectReferenceRefreshPolicy,
   PluginObjectReferenceProviderDeclaration,
   PaperclipPluginManifestV1,
+  PluginPeerReadsDeclaration,
+  PluginPeerReadEntityDeclaration,
   PluginRecord,
   PluginDatabaseNamespaceRecord,
   PluginMigrationRecord,
