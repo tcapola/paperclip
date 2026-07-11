@@ -13769,6 +13769,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
           deferredCommentIds.length > 0 &&
           !deferredCommentWakeIsSelfAuthored &&
           (issue.status === "done" || issue.status === "cancelled") &&
+          issue.originKind !== "routine_execution" &&
           (
             deferred.requestedByActorType === "user" ||
             deferredWakeReason === "issue_reopened_via_comment"
