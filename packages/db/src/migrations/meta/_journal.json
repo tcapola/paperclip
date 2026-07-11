@@ -1009,6 +1009,13 @@
       "when": 1783641600000,
       "tag": "0145_inbox_dismissal_snooze_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1783025824120,
+      "tag": "0146_issue_activity_search_sort_idx",
+      "breakpoints": true
     }
   ]
 }
