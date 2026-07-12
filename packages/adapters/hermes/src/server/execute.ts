@@ -69,6 +69,32 @@ function cfgStringArray(v: unknown): string[] | undefined {
     ? (v as string[])
     : undefined;
 }
+function cfgEnvString(v: unknown): string | undefined {
+  if (typeof v === "string" && v.length > 0) return v;
+  if (
+    v &&
+    typeof v === "object" &&
+    "value" in v &&
+    typeof (v as { value?: unknown }).value === "string" &&
+    (v as { value: string }).value.length > 0
+  ) {
+    return (v as { value: string }).value;
+  }
+  return undefined;
+}
+
+function normalizeEnvConfig(envConfig: unknown): Record<string, string> {
+  if (!envConfig || typeof envConfig !== "object" || Array.isArray(envConfig)) {
+    return {};
+  }
+
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(envConfig)) {
+    const resolved = cfgEnvString(value);
+    if (resolved !== undefined) env[key] = resolved;
+  }
+  return env;
+}
 
 export function resolveHermesCommand(config: Record<string, unknown>): string {
   return cfgString(config.hermesCommand) || cfgString(config.command) || HERMES_CLI;
@@ -453,17 +479,23 @@ export async function execute(
   }
 
   // ── Build environment ──────────────────────────────────────────────────
-  const userEnv = config.env as Record<string, string> | undefined;
+  const userEnv = normalizeEnvConfig(config.env);
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
-    ...(userEnv && typeof userEnv === "object" ? userEnv : {}),
+    ...userEnv,
     ...buildPaperclipEnv(ctx.agent),
   };
 
   if (ctx.runId) env.PAPERCLIP_RUN_ID = ctx.runId;
 
   // BUG FIX: Inject authToken as PAPERCLIP_API_KEY (matches adapter-claude-local behavior)
-  if ((ctx as any).authToken) env.PAPERCLIP_API_KEY = (ctx as any).authToken;
+  if (
+    !env.PAPERCLIP_API_KEY &&
+    typeof (ctx as AdapterExecutionContext & { authToken?: unknown }).authToken === "string" &&
+    (ctx as AdapterExecutionContext & { authToken: string }).authToken.trim().length > 0
+  ) {
+    env.PAPERCLIP_API_KEY = (ctx as AdapterExecutionContext & { authToken: string }).authToken;
+  }
 
   // BUG FIX: Read task context from ctx.context (wake context), not ctx.config (adapter config)
   const ctxContext = (ctx as any).context || {};
