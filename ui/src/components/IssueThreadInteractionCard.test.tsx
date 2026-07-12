@@ -585,4 +585,89 @@ describe("IssueThreadInteractionCard", () => {
     expect(host.textContent).toContain("cannot be");
     expect(host.textContent?.toLowerCase()).toContain("revert");
   });
+
+  it("keeps confirmation details available behind a toggle after acceptance", async () => {
+    const host = renderCard({
+      interaction: {
+        ...pendingRequestConfirmationInteraction,
+        status: "accepted",
+        result: { version: 1, outcome: "accepted" },
+      },
+    });
+
+    expect(host.textContent).toContain("Approved");
+    expect(host.textContent).not.toContain(
+      "Approve the plan and let the responsible start implementation?",
+    );
+
+    const toggle = Array.from(host.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Show details"),
+    );
+    expect(toggle).toBeTruthy();
+
+    await act(async () => {
+      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(host.textContent).toContain("Hide details");
+    expect(host.textContent).toContain(
+      "Approve the plan and let the responsible start implementation?",
+    );
+    expect(host.textContent).toContain(
+      "stale approvals are blocked if the plan changes",
+    );
+  });
+
+  it("keeps confirmation details available behind a toggle after decline", async () => {
+    const host = renderCard({
+      interaction: {
+        ...pendingRequestConfirmationInteraction,
+        status: "rejected",
+        result: { version: 1, outcome: "rejected", reason: "Tighten the plan" },
+      },
+    });
+
+    expect(host.textContent).toContain("Tighten the plan");
+
+    const toggle = Array.from(host.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Show details"),
+    );
+    expect(toggle).toBeTruthy();
+
+    await act(async () => {
+      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(host.textContent).toContain(
+      "Approve the plan and let the responsible start implementation?",
+    );
+  });
+
+  it("omits the empty prompt block when a resolved confirmation has details only", async () => {
+    const host = renderCard({
+      interaction: {
+        ...pendingRequestConfirmationInteraction,
+        payload: { ...pendingRequestConfirmationInteraction.payload, prompt: "" },
+        status: "accepted",
+        result: { version: 1, outcome: "accepted" },
+      },
+    });
+
+    const toggle = Array.from(host.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Show details"),
+    );
+    expect(toggle).toBeTruthy();
+
+    await act(async () => {
+      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(host.textContent).toContain(
+      "stale approvals are blocked if the plan changes",
+    );
+    const emptyPromptBlock = Array.from(host.querySelectorAll("div.leading-6")).find(
+      (node) => node.textContent === "",
+    );
+    expect(emptyPromptBlock).toBeFalsy();
+  });
 });
