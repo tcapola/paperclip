@@ -1732,6 +1732,16 @@ function shouldImplicitlyMoveCommentedIssueToTodo(input: {
   return true;
 }
 
+function hasUnresolvedBlockersForCommentMove(input: {
+  allBlockersDone: boolean;
+  unresolvedBlockerCount: number;
+  relaxFinalizeBarrierForHumanComment: boolean;
+}) {
+  return input.relaxFinalizeBarrierForHumanComment
+    ? !input.allBlockersDone
+    : input.unresolvedBlockerCount > 0;
+}
+
 function shouldHumanCommentResumeInProgressScheduledRetry(input: {
   hasComment: boolean;
   issueStatus: string | null | undefined;
@@ -7632,27 +7642,38 @@ export function issueRoutes(
       actorType: actor.actorType,
       actorId: actor.actorId,
     });
+    const implicitHumanCommentMoveRequested =
+      !!commentBody &&
+      shouldImplicitlyMoveCommentedIssueToTodo({
+        issueStatus: existing.status,
+        assigneeAgentId: requestedAssigneeAgentId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        actorRunId: actor.runId,
+        checkoutRunId: existing.checkoutRunId,
+        executionRunId: existing.executionRunId,
+      });
     const effectiveMoveToTodoRequested =
       !assigneeSelfCommentOnTerminal &&
       (explicitMoveToTodoRequested ||
-        (!!commentBody &&
-          shouldImplicitlyMoveCommentedIssueToTodo({
-            issueStatus: existing.status,
-            assigneeAgentId: requestedAssigneeAgentId,
-            actorType: actor.actorType,
-            actorId: actor.actorId,
-            actorRunId: actor.runId,
-            checkoutRunId: existing.checkoutRunId,
-            executionRunId: existing.executionRunId,
-          })) ||
+        implicitHumanCommentMoveRequested ||
         shouldResumeInProgressScheduledRetry);
+    const relaxFinalizeBarrierForHumanComment =
+      implicitHumanCommentMoveRequested && !explicitMoveToTodoRequested;
     const updateReferenceSummaryBefore = titleOrDescriptionChanged
       ? await issueReferencesSvc.listIssueReferenceSummary(existing.id)
       : null;
-    const hasUnresolvedFirstClassBlockers =
+    const dependencyReadiness =
       isBlocked && effectiveMoveToTodoRequested
-        ? (await svc.getDependencyReadiness(existing.id)).unresolvedBlockerCount > 0
-        : false;
+        ? await svc.getDependencyReadiness(existing.id)
+        : null;
+    const hasUnresolvedFirstClassBlockers = dependencyReadiness
+      ? hasUnresolvedBlockersForCommentMove({
+          allBlockersDone: dependencyReadiness.allBlockersDone,
+          unresolvedBlockerCount: dependencyReadiness.unresolvedBlockerCount,
+          relaxFinalizeBarrierForHumanComment,
+        })
+      : false;
     if (resumeRequested === true && isBlocked && hasUnresolvedFirstClassBlockers) {
       res.status(409).json({ error: "Issue follow-up blocked by unresolved blockers" });
       return;
@@ -9641,23 +9662,34 @@ export function issueRoutes(
       actorType: actor.actorType,
       actorId: actor.actorId,
     });
+    const implicitHumanCommentMoveRequested =
+      shouldImplicitlyMoveCommentedIssueToTodo({
+        issueStatus: issue.status,
+        assigneeAgentId: issue.assigneeAgentId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        actorRunId: actor.runId,
+        checkoutRunId: issue.checkoutRunId,
+        executionRunId: issue.executionRunId,
+      });
     const effectiveMoveToTodoRequested =
       !assigneeSelfCommentOnTerminal &&
       (explicitMoveToTodoRequested ||
-        shouldImplicitlyMoveCommentedIssueToTodo({
-          issueStatus: issue.status,
-          assigneeAgentId: issue.assigneeAgentId,
-          actorType: actor.actorType,
-          actorId: actor.actorId,
-          actorRunId: actor.runId,
-          checkoutRunId: issue.checkoutRunId,
-          executionRunId: issue.executionRunId,
-        }) ||
+        implicitHumanCommentMoveRequested ||
         shouldResumeInProgressScheduledRetry);
-    const hasUnresolvedFirstClassBlockers =
+    const relaxFinalizeBarrierForHumanComment =
+      implicitHumanCommentMoveRequested && !explicitMoveToTodoRequested;
+    const dependencyReadiness =
       isBlocked && effectiveMoveToTodoRequested
-        ? (await svc.getDependencyReadiness(issue.id)).unresolvedBlockerCount > 0
-        : false;
+        ? await svc.getDependencyReadiness(issue.id)
+        : null;
+    const hasUnresolvedFirstClassBlockers = dependencyReadiness
+      ? hasUnresolvedBlockersForCommentMove({
+          allBlockersDone: dependencyReadiness.allBlockersDone,
+          unresolvedBlockerCount: dependencyReadiness.unresolvedBlockerCount,
+          relaxFinalizeBarrierForHumanComment,
+        })
+      : false;
     if (resumeRequested === true && isBlocked && hasUnresolvedFirstClassBlockers) {
       res.status(409).json({ error: "Issue follow-up blocked by unresolved blockers" });
       return;
