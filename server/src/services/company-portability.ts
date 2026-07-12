@@ -688,6 +688,7 @@ const ADAPTER_DEFAULT_RULES_BY_TYPE: Record<string, Array<{ path: string[]; valu
   opencode_local: [
     { path: ["timeoutSec"], value: 0 },
     { path: ["graceSec"], value: 15 },
+    { path: ["dangerouslySkipPermissions"], value: true },
   ],
   cursor: [
     { path: ["timeoutSec"], value: 0 },
@@ -697,6 +698,7 @@ const ADAPTER_DEFAULT_RULES_BY_TYPE: Record<string, Array<{ path: string[]; valu
     { path: ["timeoutSec"], value: 0 },
     { path: ["graceSec"], value: 15 },
     { path: ["maxTurnsPerRun"], value: 1000 },
+    { path: ["dangerouslySkipPermissions"], value: true },
   ],
   openclaw_gateway: [
     { path: ["timeoutSec"], value: 120 },
