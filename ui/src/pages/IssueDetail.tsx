@@ -1242,6 +1242,7 @@ type IssueDetailActivityTabProps = {
   issue: Issue;
   issueId: string;
   companyId: string;
+  companyPrefix?: string | null;
   issueStatus: Issue["status"];
   childIssues: Issue[];
   agentMap: Map<string, Agent>;
@@ -1260,6 +1261,7 @@ function IssueDetailActivityTab({
   issue,
   issueId,
   companyId,
+  companyPrefix,
   issueStatus,
   childIssues,
   agentMap,
@@ -1495,6 +1497,7 @@ function IssueDetailActivityTab({
                   ? pendingApprovalAction.action
                   : null
               }
+              companyPrefix={companyPrefix ?? null}
             />
           ))}
         </div>
@@ -1511,7 +1514,7 @@ function IssueDetailActivityTab({
 
 export function IssueDetail() {
   const { issueId } = useParams<{ issueId: string }>();
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, selectedCompany } = useCompany();
   const { openNewIssue } = useDialogActions();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
   const { setBreadcrumbs, setMobileToolbar } = useBreadcrumbs();
@@ -4806,6 +4809,7 @@ export function IssueDetail() {
               issue={issue}
               issueId={issue.id}
               companyId={issue.companyId}
+              companyPrefix={selectedCompany?.issuePrefix ?? null}
               issueStatus={issue.status}
               childIssues={childIssues}
               agentMap={agentMap}
