@@ -2,6 +2,15 @@ export { execute, ensureCodexSkillsInjected } from "./execute.js";
 export * from "./acp.js";
 export { getConfigSchema } from "./config-schema.js";
 export {
+  resolveCodexAuthPrecedence,
+  CODEX_SANDBOX_AUTH_PRECEDENCE_WARNING,
+  CODEX_SANDBOX_AUTH_PRECEDENCE_WARNING_LOG_LINE,
+  CODEX_SANDBOX_AUTH_EXISTS_COMMAND,
+  type CodexAuthPrecedenceInput,
+  type CodexAuthPrecedenceResolution,
+  type CodexAuthPrecedenceWinner,
+} from "./auth-precedence.js";
+export {
   reconcileManagedCodexHome,
   isManagedCodexHomePath,
   evaluateCodexCredentialReadiness,
