@@ -8764,6 +8764,32 @@ export function issueRoutes(
       await companySkillsSvc.markTestRunRunning(updated.companyId, updated.id);
     }
 
+    if (
+      checkoutRunId &&
+      issue.assigneeAgentId === req.body.agentId &&
+      issue.status === "in_progress" &&
+      issue.checkoutRunId &&
+      issue.checkoutRunId !== checkoutRunId &&
+      updated.checkoutRunId === checkoutRunId &&
+      updated.executionRunId === checkoutRunId
+    ) {
+      await logActivity(db, {
+        companyId: issue.companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "issue.checkout_lock_adopted",
+        entityType: "issue",
+        entityId: issue.id,
+        details: {
+          previousCheckoutRunId: issue.checkoutRunId,
+          checkoutRunId,
+          reason: "stale_checkout_run",
+        },
+      });
+    }
+
     await logActivity(db, {
       companyId: issue.companyId,
       actorType: actor.actorType,
@@ -9585,6 +9611,12 @@ export function issueRoutes(
       presentation: req.body.presentation,
       metadata: req.body.metadata,
     })) return;
+    // Enforce checkout-run ownership for in_progress issues even when the actor is
+    // the assignee agent: a successor run cannot comment while the original owner
+    // run is still live (same-agent live-run safety invariant).
+    if (issue.status === "in_progress" && req.actor.type === "agent" && issue.assigneeAgentId === req.actor.agentId) {
+      if (!(await assertAgentIssueMutationAllowed(req, res, issue))) return;
+    }
     const closedExecutionWorkspace = await getClosedIssueExecutionWorkspace(issue);
     if (closedExecutionWorkspace) {
       respondClosedIssueExecutionWorkspace(res, closedExecutionWorkspace);

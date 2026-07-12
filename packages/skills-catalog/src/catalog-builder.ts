@@ -66,6 +66,7 @@ interface GitHubTreeEntry {
 interface BuildCatalogManifestOptions {
   packageDir: string;
   generatedAt?: string;
+  existingManifest?: CatalogManifest;
 }
 
 interface BuildCatalogManifestResult {
@@ -84,6 +85,7 @@ export async function buildExpectedCatalogManifest(
   const firstPass = await buildCatalogManifest({
     packageDir,
     generatedAt: existing?.generatedAt ?? new Date().toISOString(),
+    existingManifest: existing ?? undefined,
   });
 
   if (existing && sameManifestExceptGeneratedAt(existing, firstPass.manifest)) {
@@ -93,6 +95,7 @@ export async function buildExpectedCatalogManifest(
   return buildCatalogManifest({
     packageDir,
     generatedAt: new Date().toISOString(),
+    existingManifest: existing ?? undefined,
   });
 }
 
@@ -354,6 +357,27 @@ async function buildReferencedCatalogSkill(
     ? existingSkill
     : null;
   const errorStart = errors.length;
+
+  const defaultInstall = asBoolean(descriptor.defaultInstall) ?? false;
+  const recommendedForRoles = readStringArrayField(descriptor.recommendedForRoles, "recommendedForRoles", prefix, errors);
+  const requires = readStringArrayField(descriptor.requires, "requires", prefix, errors);
+  const tags = readStringArrayField(descriptor.tags, "tags", prefix, errors);
+
+  // When the generated catalog already contains this skill at the same pinned commit,
+  // reuse its content instead of re-fetching from GitHub.  This avoids unauthenticated
+  // API rate-limit failures (HTTP 403) in CI environments that lack a GITHUB_TOKEN.
+  const cached = existingManifest?.skills.find(
+    (s) => s.id === id && s.source?.commit === source.commit,
+  );
+  if (cached) {
+    return {
+      ...cached,
+      defaultInstall,
+      recommendedForRoles,
+      requires,
+      tags,
+    };
+  }
 
   const files = await collectReferencedSkillFiles(source, descriptor.files ?? [SKILL_ENTRYPOINT], prefix, errors);
   const skillMarkdown = await readReferencedFileText(source, SKILL_ENTRYPOINT, prefix, errors);
