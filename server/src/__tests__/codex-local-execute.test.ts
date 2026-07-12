@@ -3,7 +3,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { runChildProcess } from "@paperclipai/adapter-utils/server-utils";
-import { execute } from "@paperclipai/adapter-codex-local/server";
+import {
+  CODEX_CREDENTIAL_TELEMETRY_RESULT_KEY,
+  execute,
+} from "@paperclipai/adapter-codex-local/server";
 
 async function writeFakeCodexCommand(commandPath: string): Promise<void> {
   const script = `#!/usr/bin/env node
@@ -585,7 +588,7 @@ describe("codex execute", () => {
     const previousHome = process.env.HOME;
     process.env.HOME = root;
     await seedSharedCodexAuth(root);
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 3, 22, 22, 29, 0));
 
     try {
@@ -633,6 +636,103 @@ describe("codex execute", () => {
       vi.useRealTimers();
       if (previousHome === undefined) delete process.env.HOME;
       else process.env.HOME = previousHome;
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("classifies Codex refresh-token auth failures and returns only sanitized credential telemetry", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-execute-refresh-token-"));
+    const workspace = path.join(root, "workspace");
+    const commandPath = path.join(root, "codex");
+    await fs.mkdir(workspace, { recursive: true });
+    await writeFailingCodexCommand(commandPath, "OAuth failed: refresh_token_reused");
+
+    const sharedCodexHome = path.join(root, ".codex");
+    await fs.mkdir(sharedCodexHome, { recursive: true });
+    await fs.writeFile(
+      path.join(sharedCodexHome, "auth.json"),
+      JSON.stringify({
+        refresh_token: "refresh-token-fixture-secret",
+        tokens: {
+          access_token: "access-token-fixture-secret",
+          refresh_token: "refresh-token-fixture-secret",
+          id_token: "id-token-fixture-secret",
+          account_id: "account-id-fixture-secret",
+        },
+        last_refresh: "2026-07-03T12:00:00.000Z",
+      }),
+      "utf8",
+    );
+
+    const previousHome = process.env.HOME;
+    const previousPaperclipHome = process.env.PAPERCLIP_HOME;
+    const previousPaperclipInstanceId = process.env.PAPERCLIP_INSTANCE_ID;
+    const previousPaperclipInWorktree = process.env.PAPERCLIP_IN_WORKTREE;
+    const previousCodexHome = process.env.CODEX_HOME;
+    process.env.HOME = root;
+    process.env.PAPERCLIP_HOME = path.join(root, "paperclip-home");
+    delete process.env.PAPERCLIP_INSTANCE_ID;
+    delete process.env.PAPERCLIP_IN_WORKTREE;
+    process.env.CODEX_HOME = sharedCodexHome;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-09T12:00:00.000Z"));
+
+    try {
+      const result = await execute({
+        runId: "run-refresh-token-reused",
+        agent: {
+          id: "agent-1",
+          companyId: "company-1",
+          name: "Codex Coder",
+          adapterType: "codex_local",
+          adapterConfig: {},
+        },
+        runtime: {
+          sessionId: null,
+          sessionParams: null,
+          sessionDisplayId: null,
+          taskKey: null,
+        },
+        config: {
+          command: commandPath,
+          cwd: workspace,
+          promptTemplate: "Follow the paperclip heartbeat.",
+        },
+        context: {},
+        authToken: "run-jwt-token",
+        onLog: async () => {},
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.errorCode).toBe("refresh_token_reused");
+      expect(result.errorFamily).toBe("refresh_token_reused");
+      expect(result.resultJson?.[CODEX_CREDENTIAL_TELEMETRY_RESULT_KEY]).toEqual({
+        seedSource: "host_file",
+        lastRefreshAgeBucket: "lt_8d",
+        rotationsDetected: false,
+        failureClass: "refresh_token_reused",
+      });
+      const credentialTelemetry = JSON.stringify(result.resultJson?.[CODEX_CREDENTIAL_TELEMETRY_RESULT_KEY]);
+      for (const secret of [
+        "refresh-token-fixture-secret",
+        "access-token-fixture-secret",
+        "id-token-fixture-secret",
+        "account-id-fixture-secret",
+      ]) {
+        expect(credentialTelemetry).not.toContain(secret);
+      }
+    } finally {
+      vi.useRealTimers();
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousPaperclipHome === undefined) delete process.env.PAPERCLIP_HOME;
+      else process.env.PAPERCLIP_HOME = previousPaperclipHome;
+      if (previousPaperclipInstanceId === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
+      else process.env.PAPERCLIP_INSTANCE_ID = previousPaperclipInstanceId;
+      if (previousPaperclipInWorktree === undefined) delete process.env.PAPERCLIP_IN_WORKTREE;
+      else process.env.PAPERCLIP_IN_WORKTREE = previousPaperclipInWorktree;
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
       await fs.rm(root, { recursive: true, force: true });
     }
   });

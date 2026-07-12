@@ -10,6 +10,7 @@ const {
   prepareWorkspaceForSshExecution,
   restoreWorkspaceFromSshExecution,
   syncDirectoryToSsh,
+  runSshCommand,
   startAdapterExecutionTargetPaperclipBridge,
 } = vi.hoisted(() => ({
   runChildProcess: vi.fn(async () => ({
@@ -26,6 +27,7 @@ const {
   prepareWorkspaceForSshExecution: vi.fn(async () => ({ gitBacked: false })),
   restoreWorkspaceFromSshExecution: vi.fn(async () => undefined),
   syncDirectoryToSsh: vi.fn(async () => undefined),
+  runSshCommand: vi.fn(async (_spec: unknown, _command: string) => ({ stdout: "", stderr: "" })),
   startAdapterExecutionTargetPaperclipBridge: vi.fn(async () => ({
     env: {
       PAPERCLIP_API_URL: "http://127.0.0.1:4310",
@@ -57,6 +59,7 @@ vi.mock("@paperclipai/adapter-utils/ssh", async () => {
     prepareWorkspaceForSshExecution,
     restoreWorkspaceFromSshExecution,
     syncDirectoryToSsh,
+    runSshCommand,
   };
 });
 
@@ -201,6 +204,88 @@ describe("codex remote execution", () => {
       localDir: workspaceDir,
       remoteDir: managedRemoteWorkspace,
     }));
+  });
+
+  it("reads post-run credential telemetry from the remote CODEX_HOME", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-codex-remote-telemetry-"));
+    cleanupDirs.push(rootDir);
+    const workspaceDir = path.join(rootDir, "workspace");
+    const codexHomeDir = path.join(rootDir, "codex-home");
+    const managedRemoteWorkspace = "/remote/workspace/.paperclip-runtime/runs/run-telemetry/workspace";
+    const remoteAuthPath = `${managedRemoteWorkspace}/.paperclip-runtime/codex/home/auth.json`;
+    await mkdir(workspaceDir, { recursive: true });
+    await mkdir(codexHomeDir, { recursive: true });
+    await writeFile(
+      path.join(codexHomeDir, "auth.json"),
+      JSON.stringify({
+        tokens: { refresh_token: "seed-refresh-token-secret" },
+        last_refresh: "2999-01-01T00:00:00.000Z",
+      }),
+      "utf8",
+    );
+    runSshCommand.mockImplementationOnce(async (_spec, command) => {
+      expect(command).toContain(remoteAuthPath);
+      return {
+        stdout: JSON.stringify({
+          tokens: { refresh_token: "remote-rotated-refresh-token-secret" },
+          last_refresh: "2999-01-01T00:05:00.000Z",
+        }),
+        stderr: "",
+      };
+    });
+
+    const result = await execute({
+      runId: "run-telemetry",
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "CodexCoder",
+        adapterType: "codex_local",
+        adapterConfig: {},
+      },
+      runtime: {
+        sessionId: null,
+        sessionParams: null,
+        sessionDisplayId: null,
+        taskKey: null,
+      },
+      config: {
+        command: "codex",
+        env: {
+          CODEX_HOME: codexHomeDir,
+        },
+      },
+      context: {
+        paperclipWorkspace: {
+          cwd: workspaceDir,
+          source: "project_primary",
+        },
+      },
+      executionTransport: {
+        remoteExecution: {
+          host: "127.0.0.1",
+          port: 2222,
+          username: "fixture",
+          remoteWorkspacePath: "/remote/workspace",
+          remoteCwd: "/remote/workspace",
+          privateKey: "PRIVATE KEY",
+          knownHosts: "[127.0.0.1]:2222 ssh-ed25519 AAAA",
+          strictHostKeyChecking: true,
+        },
+      },
+      onLog: async () => {},
+    });
+
+    const telemetry = (result.resultJson as Record<string, unknown>).codexCredentialTelemetry;
+    expect(telemetry).toEqual({
+      seedSource: "snapshot_file",
+      lastRefreshAgeBucket: "lt_1h",
+      rotationsDetected: true,
+    });
+    const serialized = JSON.stringify(telemetry);
+    expect(serialized).not.toContain("seed-refresh-token-secret");
+    expect(serialized).not.toContain("remote-rotated-refresh-token-secret");
+    expect(runSshCommand).toHaveBeenCalledTimes(1);
   });
 
   it("does not resume saved Codex sessions for remote SSH execution without a matching remote identity", async () => {
