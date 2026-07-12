@@ -47,8 +47,8 @@ import {
  * - `GET /api/plugins/:pluginId/health` — health diagnostics (polling).
  *   Only fetched when `plugin.status === "ready"`.
  * - `GET /api/plugins/:pluginId/dashboard` — aggregated runtime dashboard data (polling).
- * - `GET /api/plugins/:pluginId/config` — current config values.
- * - `POST /api/plugins/:pluginId/config` — save config values.
+ * - `GET /api/plugins/:pluginId/config?companyId=...` — current company config values.
+ * - `POST /api/plugins/:pluginId/config` — save company config values.
  * - `POST /api/plugins/:pluginId/config/test` — test configuration.
  *
  * URL params:
@@ -97,9 +97,9 @@ export function PluginSettings() {
   const hasConfigSchema = configSchema && configSchema.properties && Object.keys(configSchema.properties).length > 0;
 
   const { data: configData, isLoading: configLoading } = useQuery({
-    queryKey: queryKeys.plugins.config(pluginId!),
-    queryFn: () => pluginsApi.getConfig(pluginId!),
-    enabled: !!pluginId && !!hasConfigSchema,
+    queryKey: queryKeys.plugins.config(pluginId!, selectedCompanyId),
+    queryFn: () => pluginsApi.getConfig(pluginId!, selectedCompanyId),
+    enabled: !!pluginId && !!hasConfigSchema && !!selectedCompanyId,
   });
 
   const { slots } = usePluginSlots({
@@ -246,6 +246,7 @@ export function PluginSettings() {
               ) : hasConfigSchema ? (
                 <PluginConfigForm
                   pluginId={pluginId!}
+                  companyId={selectedCompanyId}
                   schema={configSchema!}
                   initialValues={configData?.configJson}
                   isLoading={configLoading}
@@ -920,6 +921,7 @@ function isLikelyAbsolutePath(pathValue: string) {
 
 interface PluginConfigFormProps {
   pluginId: string;
+  companyId?: string | null;
   schema: JsonSchemaNode;
   initialValues?: Record<string, unknown>;
   isLoading?: boolean;
@@ -936,7 +938,7 @@ interface PluginConfigFormProps {
  * Separated from PluginSettings to isolate re-render scope — only the form
  * re-renders on field changes, not the entire page.
  */
-function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginStatus, supportsConfigTest }: PluginConfigFormProps) {
+function PluginConfigForm({ pluginId, companyId, schema, initialValues, isLoading, pluginStatus, supportsConfigTest }: PluginConfigFormProps) {
   const queryClient = useQueryClient();
 
   // Form values: start with saved values, fall back to schema defaults
@@ -962,6 +964,7 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [testResult, setTestResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const hasCompanyScope = typeof companyId === "string" && companyId.length > 0;
 
   // Dirty tracking: compare against initial values
   const isDirty = JSON.stringify(values) !== JSON.stringify({
@@ -971,12 +974,16 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
 
   // Save mutation
   const saveMutation = useMutation({
-    mutationFn: (configJson: Record<string, unknown>) =>
-      pluginsApi.saveConfig(pluginId, configJson),
+    mutationFn: (configJson: Record<string, unknown>) => {
+      if (!hasCompanyScope) {
+        throw new Error("Select a company before saving plugin configuration.");
+      }
+      return pluginsApi.saveConfig(pluginId, configJson, companyId);
+    },
     onSuccess: () => {
       setSaveMessage({ type: "success", text: "Configuration saved." });
       setTestResult(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.plugins.config(pluginId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.plugins.config(pluginId, companyId) });
       // Clear success message after 3s
       setTimeout(() => setSaveMessage(null), 3000);
     },
@@ -1079,7 +1086,7 @@ function PluginConfigForm({ pluginId, schema, initialValues, isLoading, pluginSt
       <div className="flex items-center gap-2 pt-2">
         <Button
           onClick={handleSave}
-          disabled={saveMutation.isPending || !isDirty}
+          disabled={saveMutation.isPending || !isDirty || !hasCompanyScope}
           size="sm"
         >
           {saveMutation.isPending ? (
