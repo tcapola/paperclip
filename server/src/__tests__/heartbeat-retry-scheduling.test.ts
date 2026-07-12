@@ -56,6 +56,28 @@ async function waitForRunToFinish(
   return await heartbeat.getRun(runId);
 }
 
+function isHeartbeatRunEventsForeignKeyError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const cause = error && typeof error === "object" && "cause" in error
+    ? (error as { cause?: unknown }).cause
+    : null;
+  const causeMessage = cause instanceof Error ? cause.message : cause ? String(cause) : "";
+  return `${message}\n${causeMessage}`.includes("heartbeat_run_events_run_id_heartbeat_runs_id_fk");
+}
+
+async function deleteHeartbeatRunsAfterEvents(db: ReturnType<typeof createDb>) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await db.delete(heartbeatRunEvents);
+    try {
+      await db.delete(heartbeatRuns);
+      return;
+    } catch (error) {
+      if (!isHeartbeatRunEventsForeignKeyError(error) || attempt === 4) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+}
+
 describeEmbeddedPostgres("heartbeat bounded retry scheduling", () => {
   let db!: ReturnType<typeof createDb>;
   let heartbeat!: ReturnType<typeof heartbeatService>;
@@ -99,8 +121,7 @@ describeEmbeddedPostgres("heartbeat bounded retry scheduling", () => {
     await db.delete(executionWorkspaces);
     await db.delete(projects);
     await db.delete(activityLog);
-    await db.delete(heartbeatRunEvents);
-    await db.delete(heartbeatRuns);
+    await deleteHeartbeatRunsAfterEvents(db);
     await db.delete(agentWakeupRequests);
     await db.delete(agentRuntimeState);
     await db.delete(budgetPolicies);
@@ -1448,8 +1469,7 @@ describeEmbeddedPostgres("heartbeat bounded retry scheduling", () => {
     await db.delete(budgetPolicies);
     await db.delete(issueRelations);
     await db.delete(issues);
-    await db.delete(heartbeatRunEvents);
-    await db.delete(heartbeatRuns);
+    await deleteHeartbeatRunsAfterEvents(db);
     await db.delete(agentWakeupRequests);
     await db.delete(agentRuntimeState);
     await db.delete(agents);
@@ -2116,8 +2136,7 @@ describeEmbeddedPostgres("heartbeat bounded retry scheduling", () => {
         .then((rows) => rows[0] ?? null);
       expect((wakeupRequest?.payload as Record<string, unknown> | null)?.codexTransientFallbackMode).toBe(expectedMode);
 
-      await db.delete(heartbeatRunEvents);
-      await db.delete(heartbeatRuns);
+      await deleteHeartbeatRunsAfterEvents(db);
       await db.delete(agentWakeupRequests);
       await db.delete(agents);
       await db.delete(companySkills);

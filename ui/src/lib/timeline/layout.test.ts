@@ -141,6 +141,49 @@ describe("computeLayout", () => {
     expect(ceoRuns.find((b) => b.span.runId === "r1-later-automation")?.kickoff).toBeNull();
   });
 
+  it("does not let a post-start edge steal kickoff ownership from an at-or-before run", () => {
+    const data = sample();
+    data.actors.push({ id: "agent:ops", type: "agent" as const, name: "Ops" });
+    data.spans.push(
+      {
+        actorId: "agent:ops",
+        laneHint: null,
+        runId: "already-running",
+        issueId: "i-direction",
+        issueIdentifier: "PAP-77777",
+        issueTitle: "Direction-aware kickoff",
+        start: t("09:57"),
+        end: t("10:08"),
+        status: "completed",
+        retryOfRunId: null,
+      },
+      {
+        actorId: "agent:ops",
+        laneHint: null,
+        runId: "edge-started-run",
+        issueId: "i-direction",
+        issueIdentifier: "PAP-77777",
+        issueTitle: "Direction-aware kickoff",
+        start: t("10:10"),
+        end: t("10:20"),
+        status: "completed",
+        retryOfRunId: null,
+      },
+    );
+    data.edges.push({
+      fromActorId: "agent:cto",
+      toActorId: "agent:ops",
+      issueId: "i-direction",
+      at: t("10:00"),
+      kind: "delegation",
+    });
+
+    const layout = computeLayout(data, OPTS);
+    const opsRuns = layout.rows.find((r) => r.actor.id === "agent:ops")!.bars;
+    expect(opsRuns.find((b) => b.span.runId === "already-running")?.kickoff).toBeNull();
+    expect(opsRuns.find((b) => b.span.runId === "edge-started-run")?.kickoff?.id).toBe("agent:cto");
+  });
+
   it("prefers the nearest post-start kickoff edge when no prior edge exists", () => {
     const data = sample();
     data.spans.push({

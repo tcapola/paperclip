@@ -3558,9 +3558,6 @@ async function waitForReadiness(input: {
     serviceName: input.serviceName,
     command: input.command,
   });
-  if (!readinessUrl) {
-    throw new Error(`Readiness check failed: could not resolve health URL for ${input.url}`);
-  }
   const timeoutSec = resolveWorkspaceRuntimeReadinessTimeoutSec(input.service);
   const intervalMs = Math.max(100, asNumber(readiness.intervalMs, 500));
   const deadline = Date.now() + timeoutSec * 1000;
@@ -3589,6 +3586,14 @@ function isPaperclipDevRuntimeService(input: { serviceName?: string | null; comm
 }
 
 function resolveRuntimeServiceHealthUrl(
+  url: string,
+  input?: { serviceName?: string | null; command?: string | null },
+): string;
+function resolveRuntimeServiceHealthUrl(
+  url: null,
+  input?: { serviceName?: string | null; command?: string | null },
+): null;
+function resolveRuntimeServiceHealthUrl(
   url: string | null,
   input?: { serviceName?: string | null; command?: string | null },
 ) {
@@ -3613,7 +3618,7 @@ async function isRuntimeServiceUrlHealthy(
 ) {
   if (!url) return true;
   const healthUrl = resolveRuntimeServiceHealthUrl(url, input);
-  if (!healthUrl) return false;
+  if (!healthUrl) return true;
   try {
     const response = await fetch(healthUrl, { signal: AbortSignal.timeout(2_000) });
     return response.ok;
